@@ -84,7 +84,7 @@ void app_main(void)
             
 
             uint8_t cmd = rx_buffer[0];
-            if (cmd != CMD_WRITE && cmd != CMD_READ) {
+            if (cmd != CMD_WRITE && cmd != CMD_READ && cmd != 0x0A) {
                 send_string("ERR_CMD");
                 continue;
             }
@@ -96,6 +96,11 @@ void app_main(void)
 
             if (cmd == CMD_READ && len < 3){
                 send_string("ERR_READLEN");
+                continue;
+            }
+
+            if (cmd == 0x0A && len < 3){
+                send_string("ERR_0ALEN");
                 continue;
             }
 
@@ -126,15 +131,15 @@ void app_main(void)
                 esp_err_t ret = i2c_master_write_read_device(I2C_MASTER_NUM,
                                                              dev_addr,
                                                              &reg_addr, 1,          // 写寄存器地址
-                                                             read_data, len - 2,    // 读取数据
+                                                             read_data, len - 3,    // 读取数据
                                                              pdMS_TO_TICKS(1000));
                 if (ret == ESP_OK) {
                     char resp[32];
-                    for(int i = 0; i < len - 2; i++) {
-                        snprintf(resp, sizeof(resp), "RD:0x%02X", read_data[i]);
-                        send_string(resp);
+                    snprintf(resp, sizeof(resp), "RD:");
+                    for(int i = 0; i < len - 3; i++) {
+                        snprintf(resp + strlen(resp), sizeof(resp) - strlen(resp), " %02X", read_data[i]);
                     }
-                
+                send_string(resp);
                 } else {
                     send_string(esp_err_to_name(ret));
                 }
@@ -145,15 +150,15 @@ void app_main(void)
                 uint8_t read_data[len - 2]; // 准备读取数据缓冲区
                 // 先写寄存器地址，再读一个字节
                 esp_err_t ret = i2c_master_read_from_device(I2C_MASTER_NUM, dev_addr,
-                                      read_data, sizeof(read_data),
+                                      read_data, len - 2,
                                       pdMS_TO_TICKS(1000));
                 if (ret == ESP_OK) {
                     char resp[32];
+                    snprintf(resp, sizeof(resp), "RD:");
                     for(int i = 0; i < len - 2; i++) {
-                        snprintf(resp, sizeof(resp), "RD:0x%02X", read_data[i]);
-                        send_string(resp);
+                        snprintf(resp + strlen(resp), sizeof(resp) - strlen(resp), " %02X", read_data[i]);
                     }
-                
+                send_string(resp);
                 } else {
                     send_string(esp_err_to_name(ret));
                 }
